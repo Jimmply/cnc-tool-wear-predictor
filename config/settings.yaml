@@ -1,0 +1,31 @@
+data:
+  n_tools: 20
+  max_cuts: 500
+  break_in_end: 0.05
+  accel_start: 0.72
+  fresh_threshold: 0.30
+  critical_threshold: 0.70
+  random_seed: 42
+  output_path: data/tool_wear_fleet.csv
+
+model:
+  classifier:
+    n_estimators: 300
+    max_depth: 5
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    random_state: 42
+  regressor:
+    n_estimators: 300
+    max_depth: 5
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    random_state: 42
+  test_size: 0.20
+  model_output_path: models/
+
+dashboard:
+  default_fleet_size: 20
+  page_title: "CNC Tool Wear Monitor"
