@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.metrics import classification_report, mean_absolute_error
@@ -123,3 +125,23 @@ class ToolWearPredictor:
             .groupby("tool_id", as_index=False)
             .last()
         )
+
+    def save(self, path: str | Path) -> None:
+        """Persist the trained models and label encoder to disk."""
+        if not self._trained:
+            raise RuntimeError("Nothing to save — call fit() first.")
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump({"clf": self._clf, "reg": self._reg, "le": self._le}, path)
+        logger.info("Model saved to %s", path)
+
+    @classmethod
+    def load(cls, path: str | Path) -> "ToolWearPredictor":
+        """Load a previously saved predictor from disk."""
+        data = joblib.load(path)
+        obj = cls.__new__(cls)
+        obj._clf = data["clf"]
+        obj._reg = data["reg"]
+        obj._le = data["le"]
+        obj._trained = True
+        return obj
