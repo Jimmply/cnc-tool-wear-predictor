@@ -15,7 +15,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.metrics import classification_report, mean_absolute_error
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBClassifier, XGBRegressor
 
@@ -26,10 +26,16 @@ logger = logging.getLogger(__name__)
 WEAR_ORDER = ["Fresh", "Worn", "Critical"]
 
 
+def split_by_tool(df: pd.DataFrame, test_size: float = 0.20, random_seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
+    splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_seed)
+    return next(splitter.split(df, groups=df["tool_id"]))
+
+
 @dataclass
 class TrainResults:
     classification_report: str
     rul_mae: float
+    n_test_tools: int
     feature_importances: pd.Series
     label_encoder: LabelEncoder
 
@@ -73,14 +79,14 @@ class ToolWearPredictor:
     # ------------------------------------------------------------------
 
     def fit(self, df: pd.DataFrame) -> TrainResults:
-        """Train on the full dataset and return evaluation metrics."""
+        """Train and evaluate on held-out tools (no tool appears in both train and test)."""
         X = df[FEATURE_COLS].values
         y_state = self._le.fit_transform(df["wear_state"])
         y_rul = df["rul_cycles"].values.astype(float)
 
-        X_tr, X_te, ys_tr, ys_te, yr_tr, yr_te = train_test_split(
-            X, y_state, y_rul, test_size=0.20, random_state=42, stratify=y_state
-        )
+        tr, te = split_by_tool(df)
+        X_tr, X_te, ys_tr, ys_te, yr_tr, yr_te = X[tr], X[te], y_state[tr], y_state[te], y_rul[tr], y_rul[te]
+        n_test_tools = df["tool_id"].iloc[te].nunique()
 
         self._clf.fit(X_tr, ys_tr)
         self._reg.fit(X_tr, yr_tr)
@@ -97,8 +103,8 @@ class ToolWearPredictor:
             .sort_values(ascending=True)
         )
 
-        logger.info("Trained. RUL MAE=%.1f cycles", rul_mae)
-        return TrainResults(report, rul_mae, importances, self._le)
+        logger.info("Trained. RUL MAE=%.1f cycles on %d unseen tools", rul_mae, n_test_tools)
+        return TrainResults(report, rul_mae, n_test_tools, importances, self._le)
 
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
         """Return predictions appended to tool_id / cut_number columns."""

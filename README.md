@@ -81,15 +81,17 @@ The dashboard opens with a fleet scatter plot (wear index vs cuts made, coloured
 
 ## Model Performance
 
-Evaluated on a 20% held-out test split (stratified by wear state):
+Evaluated on **held-out tools**: 20% of the tools (4 of 20) never appear in training, so the scores reflect a tool the model has never seen.
 
 | Metric | Value |
 |---|---|
-| Wear state accuracy | **96.8%** |
+| Wear state accuracy | **98%** |
 | Fresh F1 | 0.97 |
-| Worn F1 | 0.96 |
+| Worn F1 | 0.98 |
 | Critical F1 | 0.97 |
-| RUL MAE | **~18 cuts** (out of 500 nominal tool life) |
+| RUL MAE | **~21 cuts** (out of 500 nominal tool life) |
+
+**Why split by tool:** each tool contributes ~500 consecutive cuts. A random row split puts neighbouring cuts of the same tool on both sides, so the model is partly tested on tools it already saw. On 30-tool fleets across three seeds, the random split under-stated RUL MAE by 1–4 cuts (e.g. 22.5 vs 26.9); wear-state accuracy was unchanged. `tests/test_predictor.py` guards against the leak coming back.
 
 Top predictors (by SHAP): `spindle_current_a` → `vibration_kurtosis` → `cutting_force_n`
 
@@ -164,7 +166,7 @@ Per-tool variability (±15% lifespan, random sensor baseline offsets) and micro-
 ### Model
 
 Two XGBoost models share the same six-feature input vector:
-- **Classifier** (3-class, stratified 80/20 split): predicts Fresh / Worn / Critical wear state
+- **Classifier** (3-class, 80/20 split by tool): predicts Fresh / Worn / Critical wear state
 - **Regressor** (same split): predicts RUL in cuts to end-of-life
 
 No manual feature engineering at inference time — raw sensor readings feed directly into both models.
@@ -179,7 +181,7 @@ Replacing reactive tool changes with data-driven replacement scheduling typicall
 - **Elimination of scrap** from failing tools that degrade surface finish before they break
 - **Predictable maintenance windows** that can be scheduled between shifts
 
-At a production rate of 100 cuts/hour, a 20-cut early-warning window (current RUL MAE) gives the operator **12 minutes** to schedule an intervention — sufficient in most milling cell configurations.
+At a production rate of 100 cuts/hour, a ~20-cut early-warning window (current RUL MAE) gives the operator **12 minutes** to schedule an intervention — sufficient in most milling cell configurations.
 
 ---
 
