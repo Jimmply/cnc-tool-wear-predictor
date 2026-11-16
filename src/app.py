@@ -184,7 +184,7 @@ def _color_state(val: str) -> str:
     return colors.get(val, "")
 
 st.dataframe(
-    display_fleet.style.applymap(_color_state, subset=["State"]),
+    display_fleet.style.map(_color_state, subset=["State"]),
     use_container_width=True,
     hide_index=True,
 )
